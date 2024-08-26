@@ -1,10 +1,18 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors");
 const Product = require("./models/productModels");
+
 const app = express();
 
 app.use(express.json()); // Corrected here by adding parentheses
 //routes
+app.use(
+  cors({
+    origin: "http://localhost:3001", // Allow your frontend origin
+  })
+);
+
 app.get("/", (req, res) => {
   res.send("Hello NODE API");
 });
@@ -48,15 +56,61 @@ app.put("/products/:id", async (req, res) => {
   }
 });
 
-app.post("/products", async (req, res) => {
+app.post("/register", async (req, res) => {
   try {
-    const product = await Product.create(req.body);
-    res.status(200).json(product);
+    const data = {
+      firstname: req.body.firstname,
+      lastname: req.body.lastname,
+      email: req.body.email,
+      password: req.body.password,
+    };
+    await Product.insertMany([data]);
+    res.status(200).json(data);
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ message: error.message });
   }
 });
+// email-check
+app.get("/check-email", async (req, res) => {
+  const email = req.query.email;
+  if (!email) {
+    return res.status(400).json({ message: "Email is required." });
+  }
+
+  try {
+    const user = await Product.findOne({ email: email });
+    if (user) {
+      return res.json({ emailExists: true });
+    } else {
+      return res.json({ emailExists: false });
+    }
+  } catch (error) {
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+//login
+app.post("/login", async (req, res) => {
+  // console.log("Login Request Body:", req.body); // Add this line
+  try {
+    const check = await Product.findOne({ email: req.body.email });
+
+    if (!check) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    if (check.password === req.body.password) {
+      return res.status(200).json({ message: "Login Successful", user: check });
+    } else {
+      return res.status(401).json({ message: "Wrong Password" });
+    }
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 //delete a product
 app.delete("/products/:id", async (req, res) => {
   try {
